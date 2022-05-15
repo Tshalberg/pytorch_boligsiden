@@ -13,22 +13,22 @@ def MAPE_loss(y_pred, y):
     loss = torch.mean(loss)
     return loss
 
+torch.device("cuda")
 class RegressionModel(pl.LightningModule):
-    def __init__(self, n_in, n_hidden1, n_hidden2, learning_rate, device="cpu"):
+    def __init__(self, n_in, n_hidden1, n_hidden2, dropout_rate, learning_rate, device="cuda", **kwargs):
         super().__init__()
         self.training_device = device
         self.learning_rate = learning_rate
-        self.input_layer = nn.Linear(n_in, n_hidden1)
-        self.hidden_layer_1 = nn.Linear(n_hidden1, n_hidden2)
-        self.hidden_layer_2 = nn.Linear(n_hidden2, n_hidden2)
-        self.output_layer = nn.Linear(n_hidden2, 1)
+        self.input_layer = nn.Linear(n_in, n_hidden1).cuda()
+        self.hidden_layer_1 = nn.Linear(n_hidden1, n_hidden2).cuda()
+        self.hidden_layer_2 = nn.Linear(n_hidden2, n_hidden2).cuda()
+        self.output_layer = nn.Linear(n_hidden2, 1).cuda()
         self.activation = torch.relu
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout_rate)
         
     
     def forward(self, x):
-        x = x.to(self.training_device)
-        y_pred = self.activation(self.input_layer(x).to(self.training_device))
+        y_pred = self.activation(self.input_layer(x))
         y_pred = self.activation(self.hidden_layer_1(y_pred))
         y_pred = self.dropout(y_pred)
         y_pred = self.activation(self.hidden_layer_2(y_pred))
@@ -46,18 +46,19 @@ class RegressionModel(pl.LightningModule):
         self.log("train_loss_mse", loss_mse)
         loss_mape = MAPE_loss(y_pred, y)
         self.log("train_loss_mape", loss_mape)
-        # return loss_mse
-        return loss_mape
+        return loss_mse
+        # return loss_mape
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_pred = self.forward(x)
+        # breakpoint()
         loss_mse = F.mse_loss(y_pred, y)
         self.log("val_loss_mse", loss_mse)
         loss_mape = MAPE_loss(y_pred, y)
         self.log("val_loss_mape", loss_mape)
-        # return loss_mse
-        return loss_mape
+        return loss_mse
+        # return loss_mape
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)

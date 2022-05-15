@@ -9,9 +9,10 @@ from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from data_module import curation
 
 STATICS = statics.StaticVars()
-
+torch.device("cuda")
 def fetch_merged_data_mongo():
     """Function to fetch Boligsiden data from MongoDB
 
@@ -37,7 +38,12 @@ def fetch_merged_data_mongo():
     return data_merged
 
 class CustomDataset(Dataset):
-    def __init__(self, X, y, numeric_columns=None, scaler_x=None, scaler_y=None, device="cpu"):
+    def __init__(self, X, y, numeric_columns=None, scaler_x=None, scaler_y=None, device="cuda"):
+        self.scaler_x = scaler_x
+        self.scaler_y = scaler_y
+        self.X_original = X
+        self.y_original = y
+
         if numeric_columns is not None:
             X = X[numeric_columns]
 
@@ -60,15 +66,23 @@ class CustomDataset(Dataset):
         return self.dataset.shape[0]
 
 
-def get_datasets(device="cpu", kommune=None, numeric_columns=None):
+def get_datasets(device="cuda", kommune=None, numeric_columns=None, N_top_kommuner=None, outlier_level=None):
     assert numeric_columns is not None
 
-    dataset = pd.read_parquet("data/data_curated.parquet")
+    dataset = pd.read_parquet(r"C:\Users\Thomas\Documents\Projects\pytorch_boligsiden\data\data_curated.parquet")
     dataset = dataset[dataset["year"].isin(list(np.arange(2009, 2022)))]
     if kommune is not None:
         dataset = dataset[dataset["kommune"] == kommune]
         if "kommune_encoded" in numeric_columns:
             numeric_columns.remove("kommune_encoded")
+    else:
+        if N_top_kommuner is not None:
+            top_kommuner = dataset["kommune"].value_counts().index[:N_top_kommuner]
+            dataset = dataset[dataset["kommune"].isin(top_kommuner)]
+
+    if outlier_level is not None:
+        mask = curation.get_outlier_mask(dataset, columns=["price_sqrm"], level=1)
+        dataset = dataset[mask]
 
     target = "price"
     X = dataset[dataset.columns.drop(target)]
