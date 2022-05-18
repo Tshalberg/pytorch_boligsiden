@@ -45,6 +45,8 @@ class RegressionModel(pl.LightningModule):
         loss_mse = F.mse_loss(y_pred, y)
         self.log("train_loss_mse", loss_mse)
         loss_mape = MAPE_loss(y_pred, y)
+        # if loss_mape == 2.0:
+            # breakpoint()
         self.log("train_loss_mape", loss_mape)
         return loss_mse
         # return loss_mape
@@ -61,5 +63,5 @@ class RegressionModel(pl.LightningModule):
         # return loss_mape
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=1e-5)
         return optimizer

@@ -66,10 +66,10 @@ class CustomDataset(Dataset):
         return self.dataset.shape[0]
 
 
-def get_datasets(device="cuda", kommune=None, numeric_columns=None, N_top_kommuner=None, outlier_level=None):
+def get_datasets(fp, device="cuda", kommune=None, numeric_columns=None, N_top_kommuner=None, outlier_level=None):
     assert numeric_columns is not None
 
-    dataset = pd.read_parquet(r"C:\Users\Thomas\Documents\Projects\pytorch_boligsiden\data\data_curated.parquet")
+    dataset = pd.read_parquet(fp)
     dataset = dataset[dataset["year"].isin(list(np.arange(2009, 2022)))]
     if kommune is not None:
         dataset = dataset[dataset["kommune"] == kommune]

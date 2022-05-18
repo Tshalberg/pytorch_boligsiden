@@ -21,8 +21,9 @@ def train_model(features, hyperparameters):
     # device = "cpu"
     print (f"Device: {device}")
     torch.device(device)
+    fp = "data/data_curated.parquet"
 
-    dataset_train, dataset_val, dataset_test = md.get_datasets(device=device, 
+    dataset_train, dataset_val, dataset_test = md.get_datasets(fp, device=device, 
                                                             numeric_columns=features,
                                                             kommune=None,
                                                             N_top_kommuner=hyperparameters["N_top_kommuner"],
@@ -41,24 +42,24 @@ def train_model(features, hyperparameters):
 
     # early stopping    
     patience = 5
-    monitor = "val_loss_mape"
+    monitor = "val_loss_mse"
     mode = "min"
 
     wandb_logger.log_hyperparams(hyperparameters)
     model = regression_model.RegressionModel(**hyperparameters)
     model = model.cuda()
     early_stop_callback = EarlyStopping(monitor=monitor, min_delta=0.00, patience=patience, verbose=False, mode=mode)
-    checkpoint_callback = ModelCheckpoint(dirpath=f"D:/Pytorch/boligsiden/models/bayesian_test/{experiment_name}/", save_top_k=2, monitor="val_loss_mape",
-                                        filename="model-{epoch:02d}-{val_loss_mape:.3f}")
-    callbacks = [early_stop_callback, checkpoint_callback]
+    # checkpoint_callback = ModelCheckpoint(dirpath=f"D:/Pytorch/boligsiden/models/bayesian_test/{experiment_name}/", save_top_k=2, monitor="val_loss_mape",
+    #                                     filename="model-{epoch:02d}-{val_loss_mape:.3f}")
+    callbacks = [early_stop_callback] #checkpoint_callback
     max_epochs = None
-    gradient_clip_val = None
+    gradient_clip_val = 0.5
     if device != "cuda":
         trainer = pl.Trainer(callbacks=callbacks, logger=wandb_logger, max_epochs=max_epochs, gradient_clip_val=gradient_clip_val)
     else:
         trainer = pl.Trainer(gpus=1, callbacks=callbacks, logger=wandb_logger, max_epochs=max_epochs, gradient_clip_val=gradient_clip_val)
 
-    trainer.fit(model=model, train_dataloader=train_dataloader, val_dataloaders=val_dataloader)
+    trainer.fit(model, train_dataloader, val_dataloader)
     model = model.cuda()
     try:
         y_predict = model(val_dataloader.dataset.dataset)
@@ -106,17 +107,18 @@ hyperparameters = {
             }
 
 # np.random.seed(1337)
-hyperparameters["seed"] = 99165
+hyperparameters["seed"] = 30765
 hyperparameters["n_hidden1"] = 10
 hyperparameters["n_hidden2"] = 10
 target = train_model(features, hyperparameters)
-# for N in [10, 100]:
-N = 10
-for i in range(10):
-    hyperparameters["seed"] = np.random.randint(1, 100000)
-    hyperparameters["n_hidden1"] = N
-    hyperparameters["n_hidden2"] = N
-    target = train_model(features, hyperparameters)
+for dropout_rate in [0.2, 0.5]:
+    for N in [10, 100, 1000, 2000]:
+        for i in range(10):
+            hyperparameters["seed"] = np.random.randint(1, 100000)
+            hyperparameters["n_hidden1"] = N
+            hyperparameters["n_hidden2"] = N
+            hyperparameters["dropout_rate"] = dropout_rate
+            target = train_model(features, hyperparameters)
 
 # for i in range(20):
     # Get optimizer to suggest new parameter values to try using the
